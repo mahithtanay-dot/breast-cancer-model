@@ -12,9 +12,12 @@ This software is provided "as is," without warranty of any kind, express or impl
 
 ## Data
 
-`data/wdbc.data` — 569 patient samples, 30 numeric features per sample (radius, texture, perimeter, area, smoothness, compactness, concavity, concave points, symmetry, fractal dimension — each as mean, standard error, and worst-case value), plus a diagnosis label (M = malignant, B = benign).
+Two same-task datasets are combined into one training pool of ~1,252 samples (after dropping 16 rows with missing values):
 
-Source: [UCI Machine Learning Repository — Breast Cancer Wisconsin (Diagnostic)](https://archive.ics.uci.edu/dataset/17/breast+cancer+wisconsin+diagnostic).
+- `data/wdbc.data` — 569 patient samples, 30 numeric features per sample (radius, texture, perimeter, area, smoothness, compactness, concavity, concave points, symmetry, fractal dimension — each as mean, standard error, and worst-case value), plus a diagnosis label (M = malignant, B = benign). Source: [UCI — Breast Cancer Wisconsin (Diagnostic)](https://archive.ics.uci.edu/dataset/17/breast+cancer+wisconsin+diagnostic).
+- `data/wisconsin_original.data` — 699 patient samples, a *different* set of 9 features (clump thickness, uniformity of cell size/shape, marginal adhesion, single epithelial cell size, bare nuclei, bland chromatin, normal nucleoli, mitoses), same benign/malignant task. Source: [UCI — Breast Cancer Wisconsin (Original)](https://archive.ics.uci.edu/dataset/15/breast+cancer+wisconsin+original).
+
+These two don't share a feature schema, but since rows are serialized to text before being fed to the model (rather than a fixed-width numeric vector), both can be mixed into the same training set as long as they share the same label space — the model just reads whichever key:value pairs are present per row. Both are still from the same institution/era, so this adds volume and some feature diversity, but does **not** provide true external validation (see [MODEL_CARD.md](MODEL_CARD.md)).
 
 `data/seer_breast_cancer.csv` — 4,024 patients from the SEER (Surveillance, Epidemiology, and End Results) Program, 2006-2010, female patients with infiltrating duct and lobular carcinoma. Unlike `wdbc.data`, every patient here already has a confirmed cancer diagnosis — there's no benign class — so this dataset supports a **survival prediction task** (Alive vs. Dead from tumor stage, grade, size, hormone receptor status, and lymph node involvement), not the diagnosis task above. Not yet wired into a training notebook — reserved for a future prognosis-prediction pipeline.
 
@@ -30,8 +33,10 @@ Each patient's 30 features are serialized into a text string (e.g. `mean_radius:
 |---|---|
 | `finetune_3B_lora.ipynb` | Main pipeline: load data, QLoRA fine-tune Qwen2.5-3B, evaluate, save adapter to Drive, run predictions on new patients |
 | `BreastCancer.ipynb` | Simple logistic regression baseline for comparison |
-| `data/wdbc.data` | Raw dataset |
+| `data/wdbc.data` | UCI Wisconsin (Diagnostic) raw dataset |
+| `data/wisconsin_original.data` | UCI Wisconsin (Original) raw dataset |
 | `data/breast+cancer+wisconsin+diagnostic.zip` | Original UCI download |
+| `data/seer_breast_cancer.csv` | SEER survival dataset, reserved for a future prognosis-prediction pipeline (different task, see Data section) |
 
 ## Running it
 

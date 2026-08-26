@@ -2,6 +2,8 @@
 
 Fine-tunes a 3-billion-parameter LLM (Qwen2.5-3B) to classify breast tumors as benign or malignant, using the UCI Wisconsin Diagnostic Breast Cancer dataset.
 
+> **⚠️ Not for clinical use.** This is a learning/research project — see [MODEL_CARD.md](MODEL_CARD.md) for training data limitations, evaluation gaps, and intended use before drawing any conclusions from its output.
+
 ## Data
 
 `data/wdbc.data` — 569 patient samples, 30 numeric features per sample (radius, texture, perimeter, area, smoothness, compactness, concavity, concave points, symmetry, fractal dimension — each as mean, standard error, and worst-case value), plus a diagnosis label (M = malignant, B = benign).

@@ -3,7 +3,7 @@
 Two classifiers for the same underlying question — is this cancerous? — built on two different kinds of data:
 
 1. **`finetune_3B_lora.ipynb`** — fine-tunes Qwen2.5-3B (an LLM) on ~1,252 rows of hand-engineered numeric cytology features (UCI Wisconsin datasets)
-2. **`idc_histopathology_classifier.ipynb`** — trains a small CNN from scratch on 10,000 real breast tissue microscope image patches (IDC dataset)
+2. **`idc_histopathology_classifier.ipynb`** — trains a small CNN from scratch on 25,000 real breast tissue microscope image patches (IDC dataset)
 
 > **⚠️ Not for clinical use.** This is a learning/research project — see [MODEL_CARD.md](MODEL_CARD.md) for training data limitations, evaluation gaps, and intended use before drawing any conclusions from its output.
 
@@ -24,7 +24,7 @@ These two don't share a feature schema, but since rows are serialized to text be
 
 `data/seer_breast_cancer.csv` — 4,024 patients from the SEER (Surveillance, Epidemiology, and End Results) Program, 2006-2010, female patients with infiltrating duct and lobular carcinoma. Unlike `wdbc.data`, every patient here already has a confirmed cancer diagnosis — there's no benign class — so this dataset supports a **survival prediction task** (Alive vs. Dead from tumor stage, grade, size, hormone receptor status, and lymph node involvement), not the diagnosis task above. Not yet wired into a training notebook — reserved for a future prognosis-prediction pipeline.
 
-**IDC histopathology images** (used by `idc_histopathology_classifier.ipynb`, downloaded directly inside that notebook, not stored in this repo — it's ~1.6GB): 277,524 real 50x50 pixel image patches extracted from 162 patients' breast tissue whole-slide biopsy images, each labeled cancerous (IDC-positive) or non-cancerous. The notebook samples a balanced 10,000-patch subset (the full set is naturally imbalanced, ~28% positive) for training. Source: [Janowczyk & Madabhushi, IDC_regular_ps50_idx5](https://andrewjanowczyk.com/use-case-6-invasive-ductal-carcinoma-idc-segmentation/). Unlike the datasets above, these are genuinely large-scale and this is real microscope imagery rather than pre-computed numeric summaries — but it's still all from one dataset/collection process, so the same external-validation caveat applies.
+**IDC histopathology images** (used by `idc_histopathology_classifier.ipynb`, downloaded directly inside that notebook, not stored in this repo — it's ~1.6GB): 277,524 real 50x50 pixel image patches extracted from 162 patients' breast tissue whole-slide biopsy images, each labeled cancerous (IDC-positive) or non-cancerous. The notebook samples a balanced 25,000-patch subset (12,500 per class; the full set is naturally imbalanced, ~28% positive) for training. Source: [Janowczyk & Madabhushi, IDC_regular_ps50_idx5](https://andrewjanowczyk.com/use-case-6-invasive-ductal-carcinoma-idc-segmentation/). Unlike the datasets above, these are genuinely large-scale and this is real microscope imagery rather than pre-computed numeric summaries — but it's still all from one dataset/collection process, so the same external-validation caveat applies.
 
 ## Approach
 
@@ -65,3 +65,14 @@ The tabular notebook takes roughly 10-30 minutes on a free-tier T4; results (acc
 
 - `finetune_3B_lora.ipynb` Section 10 exposes a `predict_patient(measurements)` function — pass a dict with all 30 feature values and get back a prediction, confidence, and per-class probabilities. Works in a fresh Colab session too, since it reloads the saved adapter from Drive.
 - `idc_histopathology_classifier.ipynb` Section 9 exposes a `predict_patch(image_path)` function — pass a path to a 50x50 tissue patch image and get back the same kind of prediction/confidence output.
+
+## Live demo (Hugging Face Spaces)
+
+`webapp/app.py` is a Gradio app with two tabs — upload a tissue image (fast, runs the CNN) or enter numeric measurements (slow, runs the 3B LLM on CPU — see note below). To deploy your own copy:
+
+1. **Train both models in Colab** (both notebooks above), then run each notebook's final "Publish to Hugging Face Hub" section — this needs a free [Hugging Face](https://huggingface.co) account and an access token (Settings → Access Tokens → create one with Write access).
+2. **Create a new Space** at [huggingface.co/new-space](https://huggingface.co/new-space) — pick the **Gradio** SDK, CPU hardware (free tier).
+3. Upload `webapp/app.py` and `webapp/requirements.txt` to the Space (or connect the Space to this GitHub repo).
+4. In `app.py`, change `TABULAR_ADAPTER_REPO` and `IMAGE_MODEL_REPO` to the Hub repo IDs you pushed to in step 1.
+
+**Why the numeric-measurements tab is slow:** the LLM was fine-tuned using 4-bit quantization, which requires a GPU — free Spaces only provide CPU, so that tab loads the full 3B model at full precision instead (30-60+ seconds per prediction). The image tab has no such issue since the CNN is tiny (~100K parameters) and runs instantly on CPU. If you want the LLM tab to feel fast too, that requires upgrading the Space to paid GPU hardware.

@@ -1,0 +1,8 @@
+gradio
+torch
+torchvision
+transformers
+peft
+accelerate
+huggingface_hub
+Pillow

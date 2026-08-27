@@ -1,6 +1,9 @@
 # Breast Cancer Classifier
 
-Fine-tunes a 3-billion-parameter LLM (Qwen2.5-3B) to classify breast tumors as benign or malignant, using the UCI Wisconsin Diagnostic Breast Cancer dataset.
+Two classifiers for the same underlying question — is this cancerous? — built on two different kinds of data:
+
+1. **`finetune_3B_lora.ipynb`** — fine-tunes Qwen2.5-3B (an LLM) on ~1,252 rows of hand-engineered numeric cytology features (UCI Wisconsin datasets)
+2. **`idc_histopathology_classifier.ipynb`** — trains a small CNN from scratch on 10,000 real breast tissue microscope image patches (IDC dataset)
 
 > **⚠️ Not for clinical use.** This is a learning/research project — see [MODEL_CARD.md](MODEL_CARD.md) for training data limitations, evaluation gaps, and intended use before drawing any conclusions from its output.
 
@@ -21,17 +24,22 @@ These two don't share a feature schema, but since rows are serialized to text be
 
 `data/seer_breast_cancer.csv` — 4,024 patients from the SEER (Surveillance, Epidemiology, and End Results) Program, 2006-2010, female patients with infiltrating duct and lobular carcinoma. Unlike `wdbc.data`, every patient here already has a confirmed cancer diagnosis — there's no benign class — so this dataset supports a **survival prediction task** (Alive vs. Dead from tumor stage, grade, size, hormone receptor status, and lymph node involvement), not the diagnosis task above. Not yet wired into a training notebook — reserved for a future prognosis-prediction pipeline.
 
+**IDC histopathology images** (used by `idc_histopathology_classifier.ipynb`, downloaded directly inside that notebook, not stored in this repo — it's ~1.6GB): 277,524 real 50x50 pixel image patches extracted from 162 patients' breast tissue whole-slide biopsy images, each labeled cancerous (IDC-positive) or non-cancerous. The notebook samples a balanced 10,000-patch subset (the full set is naturally imbalanced, ~28% positive) for training. Source: [Janowczyk & Madabhushi, IDC_regular_ps50_idx5](https://andrewjanowczyk.com/use-case-6-invasive-ductal-carcinoma-idc-segmentation/). Unlike the datasets above, these are genuinely large-scale and this is real microscope imagery rather than pre-computed numeric summaries — but it's still all from one dataset/collection process, so the same external-validation caveat applies.
+
 ## Approach
 
 Each patient's 30 features are serialized into a text string (e.g. `mean_radius: 17.9900; mean_texture: 10.3800; ...`) and fed into Qwen2.5-3B with a classification head (`AutoModelForSequenceClassification`, 2 labels) attached. The base model loads in 4-bit (QLoRA) and stays frozen; only LoRA adapters plus the classification head are trained, which keeps this within Google Colab's free-tier T4 GPU (~15GB VRAM).
 
 **Worth noting:** a 3B-parameter LLM is a lot of firepower for 30 numeric features and 569 rows — a small MLP or gradient-boosted tree would likely match or beat it with a fraction of the compute (see `BreastCancer.ipynb` for a simple logistic regression baseline on the same data). This project's goal was learning the LLM fine-tuning pipeline (QLoRA, PEFT, Colab free-tier constraints) rather than picking the best tool for this specific dataset.
 
+`idc_histopathology_classifier.ipynb` follows the same right-sized-model philosophy on the image side: rather than fine-tuning a huge pretrained vision model on 50x50 pixel patches, it trains a small custom CNN (~100K parameters — three conv blocks) from scratch, which is a much better match for images this small and this task.
+
 ## Repo contents
 
 | File | Purpose |
 |---|---|
-| `finetune_3B_lora.ipynb` | Main pipeline: load data, QLoRA fine-tune Qwen2.5-3B, evaluate, save adapter to Drive, run predictions on new patients |
+| `finetune_3B_lora.ipynb` | Tabular pipeline: load data, QLoRA fine-tune Qwen2.5-3B, evaluate, save adapter to Drive, run predictions on new patients |
+| `idc_histopathology_classifier.ipynb` | Image pipeline: download IDC histopathology patches, train a small CNN from scratch, evaluate, predict on new images |
 | `BreastCancer.ipynb` | Simple logistic regression baseline for comparison |
 | `data/wdbc.data` | UCI Wisconsin (Diagnostic) raw dataset |
 | `data/wisconsin_original.data` | UCI Wisconsin (Original) raw dataset |
@@ -40,16 +48,20 @@ Each patient's 30 features are serialized into a text string (e.g. `mean_radius:
 
 ## Running it
 
-Open directly in Colab:
+Open either notebook directly in Colab:
 
-👉 https://colab.research.google.com/github/mahithtanay-dot/breast-cancer-model/blob/master/finetune_3B_lora.ipynb
+👉 [`finetune_3B_lora.ipynb`](https://colab.research.google.com/github/mahithtanay-dot/breast-cancer-model/blob/master/finetune_3B_lora.ipynb) (tabular, LLM fine-tuning)
 
+👉 [`idc_histopathology_classifier.ipynb`](https://colab.research.google.com/github/mahithtanay-dot/breast-cancer-model/blob/master/idc_histopathology_classifier.ipynb) (images, CNN from scratch)
+
+For either:
 1. **Runtime → Change runtime type → T4 GPU**
 2. **Runtime → Run all**
-3. Approve the Google Drive mount prompt when it appears (checkpoints and the final adapter save there, so they survive a disconnect)
+3. Approve the Google Drive mount prompt when it appears (checkpoints and the final model save there, so they survive a disconnect)
 
-Training takes roughly 10-30 minutes on a free-tier T4. Results (accuracy, F1, AUC, confusion matrix) print at the end of Section 8.
+The tabular notebook takes roughly 10-30 minutes on a free-tier T4; results (accuracy, F1, AUC, confusion matrix) print at the end of Section 8. The image notebook additionally spends a few minutes downloading and extracting the 1.6GB dataset before training (Section 1), with results printing at the end of Section 8 there too.
 
 ## Making predictions
 
-Section 10 exposes a `predict_patient(measurements)` function — pass a dict with all 30 feature values and get back a prediction, confidence, and per-class probabilities. Works in a fresh Colab session too, since it reloads the saved adapter from Drive rather than requiring the training run to still be in memory.
+- `finetune_3B_lora.ipynb` Section 10 exposes a `predict_patient(measurements)` function — pass a dict with all 30 feature values and get back a prediction, confidence, and per-class probabilities. Works in a fresh Colab session too, since it reloads the saved adapter from Drive.
+- `idc_histopathology_classifier.ipynb` Section 9 exposes a `predict_patch(image_path)` function — pass a path to a 50x50 tissue patch image and get back the same kind of prediction/confidence output.

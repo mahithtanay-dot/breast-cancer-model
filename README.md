@@ -15,9 +15,9 @@ This software is provided "as is," without warranty of any kind, express or impl
 
 ## Try it
 
-A live demo is hosted on Hugging Face Spaces — upload a tissue image or enter numeric measurements and get an instant prediction. *(Link goes here once deployed.)*
+**Image model (always-on):** [huggingface.co/spaces/mahithtanay/breast-cancer-classifier-demo](https://huggingface.co/spaces/mahithtanay/breast-cancer-classifier-demo) — upload a tissue image patch and get an instant prediction. Runs entirely in your browser (no server, no image ever uploaded anywhere) via ONNX.
 
-The demo runs the two trained models directly; no setup needed to use it.
+**Numeric model (on-demand):** the 3B-parameter LLM is too large for free hosting, so instead of a permanent link, it's launched on demand as a temporary public link from the training notebook's Gradio cell. Ask the maintainer for a current link, or see "Running the demo yourself" below.
 
 ## Approach
 
@@ -36,14 +36,10 @@ The notebooks, raw datasets, and training pipeline used to produce these models 
 | File | Purpose |
 |---|---|
 | `MODEL_CARD.md` | Full model documentation: training data, evaluation, limitations, intended use |
-| `webapp/app.py` | Gradio app serving both trained models for the live demo |
-| `webapp/requirements.txt` | Dependencies for the demo app |
+| `webapp/static-site/index.html` | The deployed image-classifier demo — a self-contained static page that runs the CNN client-side via ONNX (`onnxruntime-web`) |
 
 ## Running the demo yourself
 
-`webapp/app.py` loads both trained models from Hugging Face Hub and serves them through a two-tab Gradio interface (image upload, or numeric measurement entry). To run your own copy:
+The image demo is a single static HTML file with no build step or server — open `webapp/static-site/index.html` directly in a browser, or deploy it anywhere that serves static files (it fetches the model weights directly from the public Hugging Face Hub repo at runtime).
 
-1. `pip install -r webapp/requirements.txt`
-2. `python webapp/app.py`
-
-Note: the numeric-measurements tab loads a 3B-parameter LLM in full precision (4-bit quantization requires a GPU, so it won't apply on CPU-only hardware), so it's slow — 30-60+ seconds per prediction on CPU. The image tab runs a tiny CNN and is fast anywhere.
+The numeric model can't run this way (it needs a GPU + several GB of RAM), so its demo is instead launched on demand from inside the training notebook (kept in the private companion repo) using Gradio's `share=True`, which prints a temporary public link.
